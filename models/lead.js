@@ -37,7 +37,7 @@ const leadSchema = new mongoose.Schema(
       type: String,
     },
     messages: Array,
-    snapshotData: String,
+    snapshotData: Object,
   },
   {
     timestamps: true,
