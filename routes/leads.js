@@ -11,7 +11,7 @@ const openai = new OpenAI({ apiKey });
 // Quick snapshot endpoint
 router.post("/snapshot", async (req, res) => {
   try {
-    const { url } = req.body;
+    const { url, email } = req.body;
 
     // Check for existing recent request
     const existingLead = await Lead.findOne({
@@ -27,120 +27,67 @@ router.post("/snapshot", async (req, res) => {
 
     const messages = [];
 
-    const prompt = `Identify and analyze up to 5 competitors of the follwing company using its URL, focusing on how these competitors leverage AI for business improvements, and provide recommendations.
+    const prompt = `Identify and analyze up to 5 competitors of the following company using its URL, focusing on how these competitors leverage AI for business improvements, and provide tailored recommendations.
 
 Company URL: ${url}
 
 ✅ Steps
 
+1. **Identify Competitors**
+   - Analyze the industry and business model of the company using its website URL.
+   - Determine up to 5 direct or indirect competitors (excluding subsidiaries or official partners).
 
-Identify Competitors:
+2. **Analyze Competitors' Use of AI**
+   - Research how each competitor employs AI to drive revenue, reduce costs, or improve operations.
+   - Include relevant evidence or examples.
 
+3. **Formulate Recommendations**
+   - Develop clear, tailored recommendations for the original company based on the competitive insights.
 
+🔄 Output Format (JSON Only)
 
+Return your response as **valid JSON**, using the following structure:
+{
+  "companyName": "Name of the company",
+  "companyUrl": "${url}",
+  "competitors": [
+    {
+      "name": "Competitor 1 Name",
+      "website": "https://competitor1-url.com",
+      "reasonForInclusion": "Brief reason why this is a competitor (max 120 characters)",
+      "aiUseCases": [
+        "Short, specific example of AI use #1",
+        "Short, specific example of AI use #2"
+      ],
+      "recommendation": "Tailored recommendation based on this competitor’s use of AI"
+    },
+    {
+      "name": "Competitor 2 Name",
+      "website": "https://competitor2-url.com",
+      "reasonForInclusion": "Brief reason why this is a competitor (max 120 characters)",
+      "aiUseCases": [
+        "Short, specific example of AI use #1",
+        "Short, specific example of AI use #2"
+      ],
+      "recommendation": "Tailored recommendation based on this competitor’s use of AI"
+    }
+    // up to 5 competitors
+  ]
+}
+📝 Notes:
 
-
-Analyze the industry and business model of the company using its website URL.
-
-
-
-Determine up to 5 direct or indirect competitors, ensuring they are not subsidiaries or partners.
-
-
-
-Analyze Competitors' Use of AI:
-
-
-
-
-
-Research how each competitor employs AI to drive revenue, cut costs, or streamline operations.
-
-
-
-Collect relevant information and evidence to support each finding.
-
-
-
-Formulate Recommendations:
-
-
-
-
-
-Develop concrete and tailored recommendations for the requester based on the analysis of competitors.
-
-
-
-Compile Results:
-
-
-
-
-
-Present findings using a clean, structured format.
-
-
-
-🔄 Output Format (HTML)
-⚠️ Output the response as raw HTML only. Do **not** include any <html>, <head>, or <body> tags. Wrap the entire content inside a single <div> element.
-The <div> background color should be white always.
-✅ Use Tailwind CSS utility classes for styling headings, paragraphs, lists, and other elements. 
-Ensure the HTML structure is clean, semantic, and visually appealing using Tailwind conventions.
-There will be proper spacing between html elements for better readability.
-
-## Competitor Analysis for [Company Name]
-
-### 1. [Competitor Name]
-- Website: [https://competitor-url.com](https://competitor-url.com)
-- Why Included: Leverages AI to optimize supply chain efficiency.
-- AI Use Cases:
-  - Example 1
-  - Example 2
-- Recommendation:
-  - Tailored recommendation based on this competitor’s use of AI.
-
-### 2. [Competitor Name]
-- Website: [https://competitor-url.com](https://competitor-url.com)
-- Why Included: Leverages AI to optimize supply chain efficiency.
-- AI Use Cases:
-  - Example 1
-  - Example 2
-- Recommendation:
-  - Tailored recommendation based on this competitor’s use of AI.
-
-...
-
-(Repeat for up to 5 competitors)
-
-
-
-
-📝 Notes
-
-
-
-Ensure the reason for competitor inclusion is clear, concise, and under 120 characters.
-
-
-
-Focus on tangible business benefits of AI use (revenue growth, cost savings, operational efficiency).
-
-
-
-Exclude subsidiaries or official partners from the competitor list.
-
-
-
-Recommendations should be actionable and specific to the requester's company.
-
-Don't include Notes in the end of the response.`;
+* Ensure the "reasonForInclusion" is concise and clear (under 120 characters).
+* Focus on business benefits of AI use: **revenue growth**, **cost savings**, **efficiency**.
+* Do **not** include subsidiaries or partners as competitors.`;
 
     messages.push({ role: "user", content: [{ type: "text", text: prompt }] });
 
     const completion = await openai.chat.completions.create({
       model: "gpt-4o",
       messages: messages,
+      response_format: {
+        type: "json_object",
+      },
     });
 
     const aiResponse = completion?.choices[0]?.message;
@@ -148,19 +95,20 @@ Don't include Notes in the end of the response.`;
       role: aiResponse.role,
       content: aiResponse.content,
     });
-    const cleanResponse = cleanHtmlResponse(aiResponse.content);
+    // const cleanResponse = cleanHtmlResponse(aiResponse.content);
     // Create lead record
     const lead = new Lead({
       companyUrl: url,
+      email: email,
       messages: messages,
-      snapshotData: cleanResponse,
+      snapshotData: aiResponse?.content,
     });
 
     await lead.save();
 
     res.json({
       success: true,
-      data: cleanResponse,
+      data: aiResponse?.content,
     });
   } catch (error) {
     console.log("error", error);
