@@ -95,20 +95,20 @@ Return your response as **valid JSON**, using the following structure:
       role: aiResponse.role,
       content: aiResponse.content,
     });
-    // const cleanResponse = cleanHtmlResponse(aiResponse.content);
+    const jsonResponse = JSON.parse(aiResponse.content);
     // Create lead record
     const lead = new Lead({
       companyUrl: url,
       email: email,
       messages: messages,
-      snapshotData: aiResponse?.content,
+      snapshotData: jsonResponse,
     });
 
     await lead.save();
 
     res.json({
       success: true,
-      data: aiResponse?.content,
+      data: jsonResponse,
     });
   } catch (error) {
     console.log("error", error);
