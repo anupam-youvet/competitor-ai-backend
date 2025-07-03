@@ -8,10 +8,12 @@ require("dotenv").config();
 
 const apiKey = process.env.OPENAI_API_KEY;
 const openai = new OpenAI({ apiKey });
+const adminEmail = process.env.ADMIN_EMAIL || "anupamappar@gmail.com";
+
 // Quick snapshot endpoint
 router.post("/snapshot", async (req, res) => {
   try {
-    const { url, email } = req.body;
+    const { url, email, name } = req.body;
 
     // Check for existing recent request
     const existingLead = await Lead.findOne({
@@ -98,6 +100,7 @@ Return your response as **valid JSON**, using the following structure:
     const jsonResponse = JSON.parse(aiResponse.content);
     // Create lead record
     const lead = new Lead({
+      name: name,
       companyUrl: url,
       email: email,
       messages: messages,
@@ -105,6 +108,21 @@ Return your response as **valid JSON**, using the following structure:
     });
 
     await lead.save();
+    // Send email notification
+    const subject = `New Snapshot Request`;
+    const body = `
+  <h2>New Snapshot Request on Competitor AI</h2>
+  <p>A user has requested a snapshot of their website competitors. Here are the details:</p>
+  <ul>
+    <li><strong>Name:</strong> ${name}</li>
+    <li><strong>Email:</strong> ${email}</li>
+    <li><strong>Company URL:</strong> ${url}</li>
+  </ul>
+  <br>
+  <p>— Automated Notification</p>
+`;
+
+    sendMail(adminEmail, body, subject);
 
     res.json({
       success: true,
@@ -119,7 +137,7 @@ Return your response as **valid JSON**, using the following structure:
 // Deep report endpoint
 router.post("/deep-report", async (req, res) => {
   try {
-    const { email, phone, url } = req.body;
+    const { email, phone, url, name } = req.body;
     // Check for existing recent request
     const existingLead = await Lead.findOne({
       companyUrl: url,
@@ -158,6 +176,27 @@ router.post("/contact", async (req, res) => {
     });
 
     await contact.save();
+
+    const subject = `New Contact Form Submission`;
+    const body = `
+  <h2>New Contact Form Submission on Competitor AI</h2>
+  <p>A new user has submitted the contact form. Here are the details:</p>
+  <ul>
+    <li><strong>Name:</strong> ${name}</li>
+    <li><strong>Email:</strong> ${email}</li>
+    <li><strong>Phone:</strong> ${phone}</li>
+    ${
+      saasSpend
+        ? `<li><strong>Current SaaS Spend:</strong> ${saasSpend}</li>`
+        : ""
+    }
+    <li><strong>Goals:</strong> ${goals}</li>
+  </ul>
+  <br>
+  <p>— Automated Notification</p>
+`;
+
+    sendMail(adminEmail, body, subject);
     res.json({ success: true, message: "Contact form submitted successfully" });
   } catch (error) {
     console.log("error in contact form submission: ", error);
